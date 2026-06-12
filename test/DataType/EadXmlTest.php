@@ -80,6 +80,43 @@ class EadXmlTest extends TestCase
         $this->assertNull($entity->getValueResource());
     }
 
+    // ── convert (ConversionTargetInterface) ─────────────────────────────────
+
+    public function testConvertSucceedsForNonEmptyTextValue(): void
+    {
+        $entity = new Value();
+        $entity->setValue('some plain text');
+        $entity->setLang('en');
+
+        $result = $this->dataType->convert($entity, 'ead:xml');
+
+        $this->assertTrue($result);
+        $this->assertNull($entity->getLang());
+        $this->assertNull($entity->getUri());
+        $this->assertNull($entity->getValueResource());
+    }
+
+    public function testConvertFailsForEmptyTextValue(): void
+    {
+        $entity = new Value();
+        $entity->setValue('');
+        $this->assertFalse($this->dataType->convert($entity, 'ead:xml'));
+    }
+
+    public function testConvertFailsForWhitespaceOnlyValue(): void
+    {
+        $entity = new Value();
+        $entity->setValue('   ');
+        $this->assertFalse($this->dataType->convert($entity, 'ead:xml'));
+    }
+
+    public function testConvertFailsForNullValue(): void
+    {
+        $entity = new Value();
+        // getValue() returns null by default
+        $this->assertFalse($this->dataType->convert($entity, 'ead:xml'));
+    }
+
     // ── toString / getFulltextText ────────────────────────────────────────────
 
     public function testToStringStripsXmlTags(): void

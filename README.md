@@ -8,7 +8,7 @@ In standard Omeka S, property values are escaped as plain text before display â€
 
 ## Requirements
 
-- **Omeka S** `^4.0.0`
+- **Omeka S** `^4.2.0`
 - PHP `^8.0` with the `dom` extension (bundled with PHP by default)
 
 ---
