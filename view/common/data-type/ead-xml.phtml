@@ -1,0 +1,18 @@
+<?php
+/**
+ * @var \Laminas\View\Renderer\PhpRenderer $this
+ */
+?>
+<div class="field-meta">
+    <p class="field-description"><?php echo $this->translate('Enter an EAD XML fragment. Example: <emph render="italic">Title</emph>'); ?></p>
+</div>
+<div class="input-body">
+    <textarea
+        name="o:value[__index__][@value]"
+        class="value to-require"
+        data-value-key="@value"
+        rows="3"
+        aria-label="<?php echo $this->escapeHtmlAttr($this->translate('EAD XML value')); ?>"
+        placeholder="<?php echo $this->escapeHtmlAttr($this->translate('<emph render="italic">Example title</emph>')); ?>"
+    ></textarea>
+</div>
