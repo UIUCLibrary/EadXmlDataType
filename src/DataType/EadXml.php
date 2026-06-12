@@ -3,12 +3,11 @@ namespace EadXmlDataType\DataType;
 
 use Omeka\Api\Adapter\AbstractEntityAdapter;
 use Omeka\Api\Representation\ValueRepresentation;
-use Omeka\DataType\ConversionTargetInterface;
 use Omeka\DataType\DataTypeInterface;
 use Omeka\Entity\Value;
 use Laminas\View\Renderer\PhpRenderer;
 
-class EadXml implements DataTypeInterface, ConversionTargetInterface
+class EadXml implements DataTypeInterface
 {
     public function getName()
     {
@@ -66,34 +65,6 @@ class EadXml implements DataTypeInterface, ConversionTargetInterface
     public function getFulltextText(PhpRenderer $view, ValueRepresentation $value)
     {
         return strip_tags($value->value());
-    }
-
-    /**
-     * Convert an existing value to the ead:xml data type.
-     *
-     * Implements ConversionTargetInterface so that this data type appears in
-     * the "Convert data type" dropdown on the Omeka S batch-edit form and can
-     * receive values converted from other types (e.g. literal).
-     *
-     * Conversion succeeds whenever the source value carries a non-empty text
-     * string (getValue()). URI, language, and value-resource fields are
-     * cleared because ead:xml does not use them.
-     *
-     * @param Value  $valueObject   The value entity being converted.
-     * @param string $dataTypeTarget The target data type name (unused here).
-     * @return bool True on success, false when there is nothing to convert.
-     */
-    public function convert(Value $valueObject, string $dataTypeTarget): bool
-    {
-        $textValue = $valueObject->getValue();
-        if (!is_string($textValue) || '' === trim($textValue)) {
-            return false;
-        }
-        // ead:xml stores only the raw text value; clear the other fields.
-        $valueObject->setLang(null);
-        $valueObject->setUri(null);
-        $valueObject->setValueResource(null);
-        return true;
     }
 
     /**
