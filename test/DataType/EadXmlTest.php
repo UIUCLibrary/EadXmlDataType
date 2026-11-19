@@ -232,6 +232,91 @@ class EadXmlTest extends TestCase
         $this->assertSame('bare text', $this->dataType->render(new \Laminas\View\Renderer\PhpRenderer(), $rep));
     }
 
+    public function testExtrefBecomesLink(): void
+    {
+        $rep = new ValueRepresentation("<extref href='https://example.com/a'>Archon</extref>");
+        $this->assertSame('<a href="https://example.com/a">Archon</a>', $this->dataType->render(new \Laminas\View\Renderer\PhpRenderer(), $rep));
+    }
+
+    public function testExtrefWithXlinkHref(): void
+    {
+        $rep = new ValueRepresentation('<extref xlink:href="https://example.com/a">Archon</extref>');
+        $this->assertSame('<a href="https://example.com/a">Archon</a>', $this->dataType->render(new \Laminas\View\Renderer\PhpRenderer(), $rep));
+    }
+
+    /**
+     * @dataProvider emptyPointerProvider
+     */
+    public function testEmptyPointerUsesTitleThenUrlAsText(string $input, string $expected): void
+    {
+        $rep = new ValueRepresentation($input);
+        $this->assertSame($expected, $this->dataType->render(new \Laminas\View\Renderer\PhpRenderer(), $rep));
+    }
+
+    public static function emptyPointerProvider(): array
+    {
+        return [
+            'extptr title' => ['<extptr href="https://example.com/a" title="Finding aid"/>', '<a href="https://example.com/a">Finding aid</a>'],
+            'extptr url'   => ['<extptr href="https://example.com/a"/>', '<a href="https://example.com/a">https://example.com/a</a>'],
+            'ptr target'   => ['<ptr target="s1" title="Series 1"/>', '<a href="#s1">Series 1</a>'],
+        ];
+    }
+
+    // ── eadToHtml — ampersands ───────────────────────────────────────────────
+
+    public function testBareAmpersandInHrefDoesNotEscapeWholeValue(): void
+    {
+        $rep = new ValueRepresentation(
+            "See <extref href='https://example.com/p?a=1&id=2'>record</extref>. "
+            . "An <emph render='bold'>access copy</emph> is available."
+        );
+        $this->assertSame(
+            'See <a href="https://example.com/p?a=1&amp;id=2">record</a>. '
+            . 'An <strong>access copy</strong> is available.',
+            $this->dataType->render(new \Laminas\View\Renderer\PhpRenderer(), $rep)
+        );
+    }
+
+    public function testBareAmpersandInText(): void
+    {
+        $rep = new ValueRepresentation('<emph render="italic">Smith & Sons</emph>');
+        $this->assertSame('<em>Smith &amp; Sons</em>', $this->dataType->render(new \Laminas\View\Renderer\PhpRenderer(), $rep));
+    }
+
+    public function testExistingReferencesAreNotDoubleEscaped(): void
+    {
+        $rep = new ValueRepresentation('A &amp; B &#233; &#xE9; &lt;x&gt;');
+        $this->assertSame('A &amp; B é é &lt;x&gt;', $this->dataType->render(new \Laminas\View\Renderer\PhpRenderer(), $rep));
+    }
+
+    public function testHtmlNamedEntityBecomesItsCharacter(): void
+    {
+        $rep = new ValueRepresentation('<emph render="bold">A&nbsp;B&mdash;C</emph> &bogus;');
+        $this->assertSame("<strong>A\u{00A0}B\u{2014}C</strong> &amp;bogus;", $this->dataType->render(new \Laminas\View\Renderer\PhpRenderer(), $rep));
+    }
+
+    /**
+     * The dcterms:description of Omeka stage item 11698 (Ad Council Campaign
+     * Files), which reached the IIIF manifest fully escaped because of the
+     * bare "&" in the Archon URL.
+     */
+    public function testRealValueWithBareAmpersandAndExtrefs(): void
+    {
+        $value = "Orginals can be found in boxes 33, 35, and 36 of this Series. \n\t"
+            . "For more information please see this <extref href='http://archives.library.illinois.edu/archon/index.php?p=collections/controlcard&id=1178'>Series' main catalog record in Archon</extref>. "
+            . "An <emph render='bold'>access copy </emph>of these materials is available upon request. "
+            . "<emph render='bold'>Administrative access</emph> to preservation, nearline, and access files are available to archives staff at: "
+            . '<extref href="https://medusa.library.illinois.edu/collections/906">https://medusa.library.illinois.edu/collections/906</extref>';
+
+        $expected = "Orginals can be found in boxes 33, 35, and 36 of this Series. \n\t"
+            . 'For more information please see this <a href="http://archives.library.illinois.edu/archon/index.php?p=collections/controlcard&amp;id=1178">Series&#039; main catalog record in Archon</a>. '
+            . 'An <strong>access copy </strong>of these materials is available upon request. '
+            . '<strong>Administrative access</strong> to preservation, nearline, and access files are available to archives staff at: '
+            . '<a href="https://medusa.library.illinois.edu/collections/906">https://medusa.library.illinois.edu/collections/906</a>';
+
+        $this->assertSame($expected, $this->dataType->render(new \Laminas\View\Renderer\PhpRenderer(), new ValueRepresentation($value)));
+    }
+
     public function testTableStructure(): void
     {
         $input = '<table><tgroup><thead><row><entry>Col</entry></row></thead>'
