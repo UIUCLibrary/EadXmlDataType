@@ -93,12 +93,15 @@ All `<title>` elements are wrapped in `<cite>` (HTML5 semantic element for cited
 | `<blockquote>` | `<blockquote>…</blockquote>` |
 | `<list>` / `<item>` | `<ul>…</ul>` / `<li>…</li>` |
 | `<head>` | `<strong>…</strong>` |
-| `<ref href="…">` | `<a href="…">…</a>` |
+| `<ref href="…">` / `<extref href="…">` | `<a href="…">…</a>` (`xlink:href` also accepted) |
 | `<ref target="…">` | `<a href="#…">…</a>` |
+| `<extptr href="…"/>` / `<ptr target="…"/>` | `<a href="…">…</a>`, with the `title` attribute (or the URL) as the link text |
 | `<table>` / `<tgroup>` / `<thead>` / `<tbody>` / `<row>` / `<entry>` | `<table>` / (passthrough) / `<thead>` / `<tbody>` / `<tr>` / `<td>` |
 | Any unrecognised element | Text content only (tag stripped, children preserved) |
 
 Text nodes are HTML-escaped throughout. Only the allowlisted tags above appear in the HTML output.
+
+A bare `&` (common in URLs exported from ArchivesSpace, e.g. `?p=…&id=1178`) is treated as a literal ampersand rather than making the value unparseable, and HTML named entities such as `&nbsp;` become the character they name. A value that still is not well-formed XML is shown as escaped plain text.
 
 ---
 

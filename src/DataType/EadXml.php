@@ -111,7 +111,8 @@ class EadXml implements DataTypeInterface, ConversionTargetInterface
     {
         $doc = new \DOMDocument('1.0', 'UTF-8');
         // Suppress parse errors for partial/malformed fragments.
-        $xml = '<?xml version="1.0" encoding="UTF-8"?><root>' . $ead . '</root>';
+        $xml = '<?xml version="1.0" encoding="UTF-8"?><root>'
+             . $this->escapeBareAmpersands($ead) . '</root>';
         if (!@$doc->loadXML($xml)) {
             // Fall back to escaped plain text if the fragment cannot be parsed.
             return htmlspecialchars($ead, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
@@ -119,6 +120,66 @@ class EadXml implements DataTypeInterface, ConversionTargetInterface
 
         $root = $doc->documentElement;
         return $this->convertChildren($root);
+    }
+
+    /**
+     * Make ampersands that are not part of a reference parseable as XML.
+     *
+     * EAD exported from ArchivesSpace often carries URLs with a raw "&" in a
+     * query string (e.g. href='…controlcard&id=1178'). That is not well-formed
+     * XML, and one such character would otherwise send the whole value to the
+     * escaped plain-text fallback, showing every tag in it literally.
+     * HTML named entities such as &nbsp;, which XML does not define, become
+     * the character they name.
+     */
+    private function escapeBareAmpersands(string $ead): string
+    {
+        return preg_replace_callback(
+            '/&(?:(#[0-9]+|#x[0-9a-fA-F]+|[A-Za-z][A-Za-z0-9]*);)?/',
+            function (array $match): string {
+                if (!isset($match[1])) {
+                    return '&amp;';
+                }
+                $reference = $match[1];
+                if ($reference[0] === '#' || in_array($reference, ['amp', 'lt', 'gt', 'quot', 'apos'], true)) {
+                    return $match[0];
+                }
+                $decoded = html_entity_decode($match[0], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                return $decoded !== $match[0]
+                    ? htmlspecialchars($decoded, ENT_XML1 | ENT_QUOTES, 'UTF-8')
+                    : '&amp;' . $reference . ';';
+            },
+            $ead
+        );
+    }
+
+    /**
+     * Render an EAD linking element (<ref>, <extref>, <ptr>, <extptr>).
+     *
+     * The URL may be in href or, in namespaced EAD, xlink:href. Pointers are
+     * empty elements, so they fall back to their title attribute, then to the
+     * URL itself, for the link text.
+     */
+    private function convertLink(\DOMElement $node, string $inner): string
+    {
+        if ($inner === '') {
+            $title = $node->getAttribute('title') ?: $node->getAttribute('xlink:title');
+            $inner = htmlspecialchars($title, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        }
+
+        $href = $node->getAttribute('href') ?: $node->getAttribute('xlink:href');
+        if ($href !== '') {
+            $safeHref = htmlspecialchars($href, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+            return '<a href="' . $safeHref . '">' . ($inner !== '' ? $inner : $safeHref) . '</a>';
+        }
+
+        // No href: render as a named anchor if @target is set, or plain text.
+        $target = $node->getAttribute('target');
+        if ($target !== '') {
+            $safeTarget = htmlspecialchars($target, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+            return '<a href="#' . $safeTarget . '">' . $inner . '</a>';
+        }
+        return $inner;
     }
 
     /**
@@ -261,22 +322,15 @@ class EadXml implements DataTypeInterface, ConversionTargetInterface
                 return '<li>' . $inner . '</li>';
 
             // ---------------------------------------------------------------
-            // <ref> — hyperlink reference
-            // href attribute → <a href="...">
+            // <ref> / <extref> — hyperlink with content
+            // <ptr> / <extptr> — empty pointer
+            // href (or xlink:href) → <a href="...">, target → <a href="#...">
             // ---------------------------------------------------------------
             case 'ref':
-                $href = $node->getAttribute('href');
-                if ($href !== '') {
-                    $safeHref = htmlspecialchars($href, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-                    return '<a href="' . $safeHref . '">' . $inner . '</a>';
-                }
-                // No href: render as a named anchor if @target is set, or plain text.
-                $target = $node->getAttribute('target');
-                if ($target !== '') {
-                    $safeTarget = htmlspecialchars($target, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-                    return '<a href="#' . $safeTarget . '">' . $inner . '</a>';
-                }
-                return $inner;
+            case 'extref':
+            case 'ptr':
+            case 'extptr':
+                return $this->convertLink($node, $inner);
 
             // ---------------------------------------------------------------
             // <table> / <tgroup> / <thead> / <tbody> / <row> / <entry>
